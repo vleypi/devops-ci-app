@@ -67,6 +67,7 @@ jobs:
     # ИНЦИДЕНТ 1: для push в GHCR права пока недостаточно.
     permissions:
       contents: read
+      packages: write
     steps:
       - name: Checkout
         uses: actions/checkout@v7
