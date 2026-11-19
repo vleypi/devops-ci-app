@@ -109,11 +109,13 @@ jobs:
           PY
           docker exec smoke id
 
-      - name: Tag registry image
+      - name: Set up QEMU
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: |
-          docker tag "devops-ci-app:${GITHUB_SHA}" "${IMAGE_NAME}:${GITHUB_SHA}"
-          docker tag "devops-ci-app:${GITHUB_SHA}" "${IMAGE_NAME}:latest"
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/setup-buildx-action@v3
 
       - name: Log in to GHCR
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -121,8 +123,13 @@ jobs:
           REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: printf '%s\n' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
 
-      - name: Push image
+      # Образ публикуется для amd64 и arm64: VM devops-vm работает на Apple Silicon (aarch64).
+      # Smoke-test выше проверяет amd64-сборку на раннере.
+      - name: Build and push multi-arch image
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
-          docker push "${IMAGE_NAME}:${GITHUB_SHA}"
-          docker push "${IMAGE_NAME}:latest"
+          docker buildx build \
+            --platform linux/amd64,linux/arm64 \
+            --tag "${IMAGE_NAME}:${GITHUB_SHA}" \
+            --tag "${IMAGE_NAME}:latest" \
+            --push .
